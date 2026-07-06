@@ -10,7 +10,7 @@ const ReportForm = () => {
     delegates: [],
     reportTypes: [],
     vacationTypes: [],
-    branches: [] // أضفنا الفروع هنا لتجنب الأخطاء
+    branches: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ const ReportForm = () => {
     notes: ''
   });
 
-  // قائمة الـ 81 منتج المجهزة مسبقاً (كما هي بدون أي نقص)
+  // قائمة الـ 81 منتج المجهزة مسبقاً كما هي
   const [products, setProducts] = useState([
     // الكلور المبيض (CLB)
     { id: 1, category: 'الكلور المبيض (CLB)', name: 'Clorox Saving Pack 1kg', target: '', achieved: '' },
@@ -51,7 +51,7 @@ const ReportForm = () => {
     { id: 15, category: 'كلوركس ألوان (CFC)', name: 'CFC F. 950ml', target: '', achieved: '' },
     { id: 16, category: 'كلوركس ألوان (CFC)', name: 'CFC Lav. 950ml', target: '', achieved: '' },
     { id: 17, category: 'كلوركس ألوان (CFC)', name: 'CFC R. 2Lit', target: '', achieved: '' },
-    { id: 18, category: 'كلوركس ألوان (CFC)', name: 'CFC F. 2Lit', target: '', achieved: '' },
+    { id: 18, category: 'كلوركس ألوان (CFC)', name: 'CFC F. 2Lit', text: '', target: '', achieved: '' },
     { id: 19, category: 'كلوركس ألوان (CFC)', name: 'CFC Lav. 2Lit', target: '', achieved: '' },
 
     // منظفات 5 في 1
@@ -133,7 +133,7 @@ const ReportForm = () => {
 
   // استدعاء البيانات من جوجل شيت عند فتح الصفحة
   useEffect(() => {
-    fetch('https://script.google.com/macros/s/AKfycbxRwoyorw1b4k8wboC-gVhum36lpgV_mAtWAbChH-I68cgkLvph8X1pLDSfVtEnrQys/exec') 
+    fetch('https://script.google.com/macros/s/AKfycbx3_gR2hOe9dhjgdSVwNu2RM6EghU0b3q6VDrIg3kYu59cZRaiC4UHTZY_lTmCnIH_i/exec') 
       .then(res => res.json())
       .then(data => {
         setOptions(data);
@@ -153,7 +153,8 @@ const ReportForm = () => {
     setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
-  const handleSubmit = async () => {
+  /const handleSubmit = async () => {
+    // تصفية المنتجات الفاضية
     const filledProducts = products.filter(p => p.target !== '' || p.achieved !== '');
 
     const finalReport = {
@@ -165,29 +166,37 @@ const ReportForm = () => {
       products: filledProducts
     };
 
+    // رسالة عشان نتأكد إن الزرار استجاب وبدأ يجمع الداتا
+    alert('جاري إرسال التقرير للسيرفر... برجاء الانتظار ⏳');
+
     try {
-      const response = await fetch('https://script.google.com/macros/s/AKfycbxRwoyorw1b4k8wboC-gVhum36lpgV_mAtWAbChH-I68cgkLvph8X1pLDSfVtEnrQys/exec', {
+      // حط الرابط بتاعك اللي نسخته من جوجل سكريبت هنا مكان الرابط ده
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbz5f7ZOokdekKVbXSXfC_s9t6L06QEHr-QkoQ07cgM2174ugBtcWMFyw--4YkHIAAj5/exec';
+      
+      const response = await fetch(scriptUrl, {
         method: 'POST',
-        body: JSON.stringify(finalReport)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(finalReport),
+        redirect: 'follow'
       });
 
-      if (response.ok) {
-        alert('تم حفظ وإرسال التقرير بنجاح! 🎉');
-        navigate('/archive'); 
-      } else {
-        alert('حدث خطأ أثناء الحفظ، حاول مرة أخرى');
-      }
-    } catch (error) {
-      console.error('خطأ في الإرسال:', error);
-      alert('فشل الاتصال بالسيرفر، تأكد من الإنترنت');
+      // لو وصل للسطر ده بدون ما يضرب خطأ، يبقى الداتا وصلت بنجاح
+      alert('تم إرسال التقرير بنجاح! 🎉');
+      navigate('/archive'); 
+
+    } catch (error: any) {
+      // هنا الفخ! لو المتصفح أو جوجل رفضوا الداتا، هيطبعلنا السبب بالظبط
+      console.error('تفاصيل الخطأ:', error);
+      alert('البيانات لم تصل! الخطأ هو: ' + error.message);
     }
   };
-
   const categories = [...new Set(products.map(p => p.category))];
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50 text-[#00529b] text-xl font-bold dir-rtl">
+      <div className="flex justify-center items-center h-screen bg-gray-50 text-[#00529b] text-xl font-bold">
         جاري تحميل البيانات من جوجل شيت... 🔄
       </div>
     );
@@ -201,17 +210,16 @@ const ReportForm = () => {
         <button onClick={() => navigate('/archive')} className="text-gray-500 font-bold hover:text-[#00529b] transition-colors">
           🔙 رجوع
         </button>
-        <h2 className="text-2xl font-extrabold text-[#00529b]">إضافة تقرير جديد</h2>
+        <h2 className="text-2xl font-extrabold text-[#00529b]">إضافة تقرير جديد (تحديث V2 🚀)</h2>
       </div>
       
       {/* قسم البيانات الأساسية */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        
         <div className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">التاريخ:</label>
           <input 
             type="date" 
-            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b]" 
             value={reportData.date} 
             onChange={(e) => handleDataChange('date', e.target.value)} 
           />
@@ -220,7 +228,7 @@ const ReportForm = () => {
         <div className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">اسم المشرف:</label>
           <select 
-            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b]" 
             value={reportData.supervisorName} 
             onChange={(e) => handleDataChange('supervisorName', e.target.value)}
           >
@@ -232,7 +240,7 @@ const ReportForm = () => {
         <div className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">اسم المندوبة:</label>
           <select 
-            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b]" 
             value={reportData.delegateName} 
             onChange={(e) => handleDataChange('delegateName', e.target.value)}
           >
@@ -244,7 +252,7 @@ const ReportForm = () => {
         <div className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">نوع التقرير:</label>
           <select 
-            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b]" 
             value={reportData.reportType} 
             onChange={(e) => handleDataChange('reportType', e.target.value)}
           >
@@ -257,7 +265,7 @@ const ReportForm = () => {
           <div className="mb-4">
             <label className="block text-sm font-bold text-red-600 mb-2">نوع الإجازة:</label>
             <select 
-              className="w-full border border-red-300 rounded-xl p-3 bg-red-50 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500" 
+              className="w-full border border-red-300 rounded-xl p-3 bg-red-50 focus:outline-none focus:border-red-500" 
               value={reportData.vacationType} 
               onChange={(e) => handleDataChange('vacationType', e.target.value)}
             >
@@ -270,7 +278,7 @@ const ReportForm = () => {
         <div className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">اسم الفرع / المتجر:</label>
           <select 
-            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b]" 
             value={reportData.branchName} 
             onChange={(e) => handleDataChange('branchName', e.target.value)}
           >
@@ -280,44 +288,38 @@ const ReportForm = () => {
         </div>
       </div>
 
-      {/* شاشة جرد المنتجات (بنظام الكروت المودرن) */}
+      {/* شاشة جرد المنتجات */}
       {reportData.reportType !== "اجازة" && (
         <div className="mb-8">
           {categories.map(category => (
             <div key={category}>
-              {/* عنوان القسم */}
               <div className="bg-[#00529b] text-white p-3 rounded-xl mt-6 mb-4 text-lg font-bold shadow-md text-center">
                 {category}
               </div>
               
-              {/* المنتجات داخل القسم */}
               {products.filter(p => p.category === category).map(product => (
-                <div key={product.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-3 hover:shadow-md transition-shadow">
-                  
-                  {/* اسم المنتج بالانجليزي محاذاة لليسار */}
+                <div key={product.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-3">
                   <h3 className="text-md font-bold text-[#00529b] mb-3 text-left" dir="ltr">
                     {product.name}
                   </h3>
                   
                   <div className="flex gap-4">
-                    {/* المستهدف */}
                     <div className="flex-1">
                       <label className="block text-xs font-semibold text-gray-500 mb-1 text-center">المستهدف</label>
                       <input 
                         type="number" 
-                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b] bg-gray-50"
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg bg-gray-50 focus:outline-none focus:border-[#00529b]"
                         placeholder="0"
                         value={product.target}
                         onChange={(e) => handleProductChange(product.id, 'target', e.target.value)}
                       />
                     </div>
                     
-                    {/* المحقق */}
                     <div className="flex-1">
                       <label className="block text-xs font-semibold text-gray-500 mb-1 text-center">المحقق</label>
                       <input 
                         type="number" 
-                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 bg-gray-50"
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg bg-gray-50 focus:outline-none focus:border-green-500"
                         placeholder="0"
                         value={product.achieved}
                         onChange={(e) => handleProductChange(product.id, 'achieved', e.target.value)}
@@ -331,13 +333,13 @@ const ReportForm = () => {
         </div>
       )}
 
-      {/* قسم الفاوتشر (يظهر فقط لو نوع التقرير "فاوتشر") */}
+      {/* قسم الفاوتشر */}
       {reportData.reportType === 'فاوتشر' && (
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 flex items-center justify-between">
           <span className="font-bold text-[#00529b] text-lg">عدد الفاوتشر:</span>
           <input 
             type="number" 
-            className="border border-gray-300 rounded-xl p-3 w-24 text-center text-lg focus:outline-none focus:border-[#00529b] bg-gray-50" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center text-lg bg-gray-50 focus:outline-none" 
             placeholder="0"
             value={voucherCount}
             onChange={(e) => setVoucherCount(e.target.value)} 
@@ -347,12 +349,11 @@ const ReportForm = () => {
 
       {/* قسم بيانات العملاء */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        
         <div className="flex items-center justify-between mb-4">
           <span className="font-bold text-gray-700">العميل السلبي:</span>
           <input 
             type="number" 
-            className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-red-500 bg-gray-50" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center bg-gray-50 focus:outline-none" 
             placeholder="0"
             value={negativeCustomer || ''}
             onChange={(e) => setNegativeCustomer(Number(e.target.value))} 
@@ -363,7 +364,7 @@ const ReportForm = () => {
           <span className="font-bold text-gray-700">العميل الإيجابي:</span>
           <input 
             type="number" 
-            className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-green-500 bg-gray-50" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center bg-gray-50 focus:outline-none" 
             placeholder="0"
             value={positiveCustomer || ''}
             onChange={(e) => setPositiveCustomer(Number(e.target.value))} 
@@ -377,15 +378,6 @@ const ReportForm = () => {
               {(negativeCustomer || 0) + (positiveCustomer || 0)}
             </span>
           </div>
-          
-          <div className="flex justify-between items-center">
-            <span className="font-bold text-gray-700">هدف العملاء:</span>
-            <input 
-              type="number" 
-              className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-[#00529b] bg-white" 
-              placeholder="الهدف" 
-            />
-          </div>
         </div>
       </div>
 
@@ -393,7 +385,7 @@ const ReportForm = () => {
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
         <label className="block text-sm font-semibold text-gray-700 mb-2">ملاحظات إضافية (اختياري):</label>
         <textarea 
-          className="w-full border border-gray-300 rounded-xl p-3 min-h-[100px] bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+          className="w-full border border-gray-300 rounded-xl p-3 min-h-[100px] bg-gray-50 focus:outline-none" 
           value={reportData.notes}
           onChange={(e) => handleDataChange('notes', e.target.value)}
           placeholder="أي ملاحظات عن الزيارة..."
