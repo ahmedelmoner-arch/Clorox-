@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-
 const ReportForm = () => {
   const navigate = useNavigate();
 
@@ -10,15 +9,16 @@ const ReportForm = () => {
     supervisors: [],
     delegates: [],
     reportTypes: [],
-    vacationTypes: []
+    vacationTypes: [],
+    branches: [] // أضفنا الفروع هنا لتجنب الأخطاء
   });
 
   const [loading, setLoading] = useState(true);
 
   // بيانات التقرير الأساسية
   const [negativeCustomer, setNegativeCustomer] = useState(0);
-const [positiveCustomer, setPositiveCustomer] = useState(0);
-const [voucherCount, setVoucherCount] = useState('');
+  const [positiveCustomer, setPositiveCustomer] = useState(0);
+  const [voucherCount, setVoucherCount] = useState('');
   const [reportData, setReportData] = useState({
     date: new Date().toISOString().split('T')[0],
     reportType: '',
@@ -29,7 +29,7 @@ const [voucherCount, setVoucherCount] = useState('');
     notes: ''
   });
 
-  // قائمة الـ 81 منتج المجهزة مسبقاً
+  // قائمة الـ 81 منتج المجهزة مسبقاً (كما هي بدون أي نقص)
   const [products, setProducts] = useState([
     // الكلور المبيض (CLB)
     { id: 1, category: 'الكلور المبيض (CLB)', name: 'Clorox Saving Pack 1kg', target: '', achieved: '' },
@@ -133,7 +133,6 @@ const [voucherCount, setVoucherCount] = useState('');
 
   // استدعاء البيانات من جوجل شيت عند فتح الصفحة
   useEffect(() => {
-    // ضَع رابط الـ Web App الخاص بك هنا بدلاً من الرابط الوهمي بالأسفل
     fetch('https://script.google.com/macros/s/AKfycbxRwoyorw1b4k8wboC-gVhum36lpgV_mAtWAbChH-I68cgkLvph8X1pLDSfVtEnrQys/exec') 
       .then(res => res.json())
       .then(data => {
@@ -154,109 +153,176 @@ const [voucherCount, setVoucherCount] = useState('');
     setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
+  const handleSubmit = async () => {
+    const filledProducts = products.filter(p => p.target !== '' || p.achieved !== '');
+
+    const finalReport = {
+      ...reportData,
+      negativeCustomers: negativeCustomer,
+      positiveCustomers: positiveCustomer,
+      totalCustomers: (negativeCustomer || 0) + (positiveCustomer || 0),
+      voucherCount: reportData.reportType === 'فاوتشر' ? voucherCount : 0,
+      products: filledProducts
+    };
+
+    try {
+      const response = await fetch('https://script.google.com/macros/s/AKfycbxRwoyorw1b4k8wboC-gVhum36lpgV_mAtWAbChH-I68cgkLvph8X1pLDSfVtEnrQys/exec', {
+        method: 'POST',
+        body: JSON.stringify(finalReport)
+      });
+
+      if (response.ok) {
+        alert('تم حفظ وإرسال التقرير بنجاح! 🎉');
+        navigate('/archive'); 
+      } else {
+        alert('حدث خطأ أثناء الحفظ، حاول مرة أخرى');
+      }
+    } catch (error) {
+      console.error('خطأ في الإرسال:', error);
+      alert('فشل الاتصال بالسيرفر، تأكد من الإنترنت');
+    }
+  };
+
   const categories = [...new Set(products.map(p => p.category))];
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px', fontWeight: 'bold' }}>جاري تحميل البيانات من جوجل شيت... 🔄</div>;
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50 text-[#00529b] text-xl font-bold dir-rtl">
+        جاري تحميل البيانات من جوجل شيت... 🔄
+      </div>
+    );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <button style={styles.backBtn} onClick={() => navigate('/archive')}>🔙 رجوع</button>
-        <h2 style={styles.title}>إضافة تقرير جديد</h2>
+    <div className="min-h-screen bg-gray-50 p-4 font-sans text-right" dir="rtl">
+      
+      {/* الهيدر */}
+      <div className="flex justify-between items-center mb-6">
+        <button onClick={() => navigate('/archive')} className="text-gray-500 font-bold hover:text-[#00529b] transition-colors">
+          🔙 رجوع
+        </button>
+        <h2 className="text-2xl font-extrabold text-[#00529b]">إضافة تقرير جديد</h2>
       </div>
       
       {/* قسم البيانات الأساسية */}
-      <div style={styles.topSection}>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>التاريخ:</label>
-          <input type="date" style={styles.input} value={reportData.date} onChange={(e) => handleDataChange('date', e.target.value)} />
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">التاريخ:</label>
+          <input 
+            type="date" 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            value={reportData.date} 
+            onChange={(e) => handleDataChange('date', e.target.value)} 
+          />
         </div>
         
-        {/* اسم المشرف من شيت Supervisor */}
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>اسم المشرف:</label>
-          <select style={styles.input} value={reportData.supervisorName} onChange={(e) => handleDataChange('supervisorName', e.target.value)}>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">اسم المشرف:</label>
+          <select 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            value={reportData.supervisorName} 
+            onChange={(e) => handleDataChange('supervisorName', e.target.value)}
+          >
             <option value="">-- اختر المشرف --</option>
-            {options.supervisors.map((name, i) => <option key={i} value={name}>{name}</option>)}
+            {options.supervisors?.map((name, i) => <option key={i} value={name}>{name}</option>)}
           </select>
         </div>
 
-        {/* اسم المندوبة من شيت Delegate */}
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>اسم المندوبة:</label>
-          <select style={styles.input} value={reportData.delegateName} onChange={(e) => handleDataChange('delegateName', e.target.value)}>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">اسم المندوبة:</label>
+          <select 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            value={reportData.delegateName} 
+            onChange={(e) => handleDataChange('delegateName', e.target.value)}
+          >
             <option value="">-- اختر المندوبة --</option>
-            {options.delegates.map((name, i) => <option key={i} value={name}>{name}</option>)}
+            {options.delegates?.map((name, i) => <option key={i} value={name}>{name}</option>)}
           </select>
         </div>
 
-        {/* نوع التقرير من شيت Type */}
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>نوع التقرير:</label>
-          <select style={styles.input} value={reportData.reportType} onChange={(e) => handleDataChange('reportType', e.target.value)}>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">نوع التقرير:</label>
+          <select 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            value={reportData.reportType} 
+            onChange={(e) => handleDataChange('reportType', e.target.value)}
+          >
             <option value="">-- اختر نوع التقرير --</option>
-            {options.reportTypes.map((type, i) => <option key={i} value={type}>{type}</option>)}
+            {options.reportTypes?.map((type, i) => <option key={i} value={type}>{type}</option>)}
           </select>
         </div>
 
-        {/* نوع الإجازة من شيت Vacation (يظهر فقط لو تم اختيار إجازة) */}
         {reportData.reportType === "اجازة" && (
-          <div style={styles.inputGroup}>
-            <label style={styles.label} style={{...styles.label, color: '#E53935'}}>نوع الإجازة:</label>
-            <select style={{...styles.input, borderColor: '#E53935'}} value={reportData.vacationType} onChange={(e) => handleDataChange('vacationType', e.target.value)}>
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-red-600 mb-2">نوع الإجازة:</label>
+            <select 
+              className="w-full border border-red-300 rounded-xl p-3 bg-red-50 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500" 
+              value={reportData.vacationType} 
+              onChange={(e) => handleDataChange('vacationType', e.target.value)}
+            >
               <option value="">-- اختر نوع الإجازة --</option>
-              {options.vacationTypes.map((vType, i) => <option key={i} value={vType}>{vType}</option>)}
+              {options.vacationTypes?.map((vType, i) => <option key={i} value={vType}>{vType}</option>)}
             </select>
           </div>
         )}
 
-        <div style={styles.inputGroup}>
-  <label style={styles.label}>اسم الفرع / المتجر:</label>
-  <select 
-    style={styles.input} 
-    value={reportData.branchName} 
-    onChange={(e) => handleDataChange('branchName', e.target.value)}
-  >
-    <option value="">-- اختر الفرع --</option>
-    {options.branches.map((branch, i) => (
-      <option key={i} value={branch}>{branch}</option>
-    ))}
-  </select>
-</div>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">اسم الفرع / المتجر:</label>
+          <select 
+            className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
+            value={reportData.branchName} 
+            onChange={(e) => handleDataChange('branchName', e.target.value)}
+          >
+            <option value="">-- اختر الفرع --</option>
+            {options.branches?.map((branch, i) => <option key={i} value={branch}>{branch}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* شاشة جرد المنتجات */}
+      {/* شاشة جرد المنتجات (بنظام الكروت المودرن) */}
       {reportData.reportType !== "اجازة" && (
-        <div style={styles.productsContainer}>
-          <div style={styles.tableHeader}>
-            <span style={styles.headerName}>المنتج</span>
-            <span style={styles.headerInput}>المستهدف</span>
-            <span style={styles.headerInput}>المحقق</span>
-          </div>
-
+        <div className="mb-8">
           {categories.map(category => (
             <div key={category}>
-              <div style={styles.categoryHeader}>{category}</div>
+              {/* عنوان القسم */}
+              <div className="bg-[#00529b] text-white p-3 rounded-xl mt-6 mb-4 text-lg font-bold shadow-md text-center">
+                {category}
+              </div>
+              
+              {/* المنتجات داخل القسم */}
               {products.filter(p => p.category === category).map(product => (
-                <div key={product.id} style={styles.productRow}>
-                  <span style={styles.productName}>{product.name}</span>
-                  <div style={styles.inputsWrapper}>
-                    <input 
-                      type="number" 
-                      style={styles.numberInput} 
-                      placeholder="0"
-                      value={product.target}
-                      onChange={(e) => handleProductChange(product.id, 'target', e.target.value)}
-                    />
-                    <input 
-                      type="number" 
-                      style={styles.numberInput} 
-                      placeholder="0"
-                      value={product.achieved}
-                      onChange={(e) => handleProductChange(product.id, 'achieved', e.target.value)}
-                    />
+                <div key={product.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-3 hover:shadow-md transition-shadow">
+                  
+                  {/* اسم المنتج بالانجليزي محاذاة لليسار */}
+                  <h3 className="text-md font-bold text-[#00529b] mb-3 text-left" dir="ltr">
+                    {product.name}
+                  </h3>
+                  
+                  <div className="flex gap-4">
+                    {/* المستهدف */}
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-gray-500 mb-1 text-center">المستهدف</label>
+                      <input 
+                        type="number" 
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b] bg-gray-50"
+                        placeholder="0"
+                        value={product.target}
+                        onChange={(e) => handleProductChange(product.id, 'target', e.target.value)}
+                      />
+                    </div>
+                    
+                    {/* المحقق */}
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-gray-500 mb-1 text-center">المحقق</label>
+                      <input 
+                        type="number" 
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center text-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 bg-gray-50"
+                        placeholder="0"
+                        value={product.achieved}
+                        onChange={(e) => handleProductChange(product.id, 'achieved', e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -264,135 +330,86 @@ const [voucherCount, setVoucherCount] = useState('');
           ))}
         </div>
       )}
+
       {/* قسم الفاوتشر (يظهر فقط لو نوع التقرير "فاوتشر") */}
-{reportData.reportType === 'فاوتشر' && (
-  <div style={styles.topSection}>
-    <div style={styles.productRow}>
-      <span style={{ fontWeight: 'bold', color: '#1C74B4' }}>عدد الفاوتشر:</span>
-      <input 
-        type="number" 
-        style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc', width: '100px', textAlign: 'center' }} 
-        placeholder="0"
-        value={voucherCount}
-        onChange={(e) => setVoucherCount(e.target.value)} 
-      />
-    </div>
-  </div>
-)}
+      {reportData.reportType === 'فاوتشر' && (
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4 flex items-center justify-between">
+          <span className="font-bold text-[#00529b] text-lg">عدد الفاوتشر:</span>
+          <input 
+            type="number" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center text-lg focus:outline-none focus:border-[#00529b] bg-gray-50" 
+            placeholder="0"
+            value={voucherCount}
+            onChange={(e) => setVoucherCount(e.target.value)} 
+          />
+        </div>
+      )}
+
       {/* قسم بيانات العملاء */}
-<div style={styles.topSection}>
-  <div style={styles.productRow}>
-    <span style={{ fontWeight: 'bold', color: '#333' }}>العميل السلبي:</span>
-    <input 
-      type="number" 
-      style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc', width: '80px', textAlign: 'center' }} 
-      placeholder="0"
-      value={negativeCustomer || ''}
-      onChange={(e) => setNegativeCustomer(Number(e.target.value))} 
-    />
-  </div>
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-bold text-gray-700">العميل السلبي:</span>
+          <input 
+            type="number" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-red-500 bg-gray-50" 
+            placeholder="0"
+            value={negativeCustomer || ''}
+            onChange={(e) => setNegativeCustomer(Number(e.target.value))} 
+          />
+        </div>
 
-  <div style={styles.productRow}>
-    <span style={{ fontWeight: 'bold', color: '#333' }}>العميل الإيجابي:</span>
-    <input 
-      type="number" 
-      style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc', width: '80px', textAlign: 'center' }} 
-      placeholder="0"
-      value={positiveCustomer || ''}
-      onChange={(e) => setPositiveCustomer(Number(e.target.value))} 
-    />
-  </div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-bold text-gray-700">العميل الإيجابي:</span>
+          <input 
+            type="number" 
+            className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-green-500 bg-gray-50" 
+            placeholder="0"
+            value={positiveCustomer || ''}
+            onChange={(e) => setPositiveCustomer(Number(e.target.value))} 
+          />
+        </div>
 
-  <div style={{ marginTop: '10px', padding: '15px', backgroundColor: '#f0f4f8', borderRadius: '8px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-      <span style={{ fontWeight: 'bold', color: '#1C74B4' }}>إجمالي العملاء:</span>
-      {/* هنا بيحصل الجمع الأوتوماتيك */}
-      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1C74B4' }}>
-        {(negativeCustomer || 0) + (positiveCustomer || 0)}
-      </span>
-    </div>
-    
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontWeight: 'bold', color: '#333' }}>هدف العملاء:</span>
-      <input 
-        type="number" 
-        style={{ padding: '8px', borderRadius: '5px', border: '1px solid #ccc', width: '100px', textAlign: 'center' }} 
-        placeholder="الهدف" 
-      />
-    </div>
-  </div>
-</div>
+        <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-bold text-[#00529b]">إجمالي العملاء:</span>
+            <span className="text-2xl font-black text-[#00529b]">
+              {(negativeCustomer || 0) + (positiveCustomer || 0)}
+            </span>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-gray-700">هدف العملاء:</span>
+            <input 
+              type="number" 
+              className="border border-gray-300 rounded-xl p-3 w-24 text-center focus:outline-none focus:border-[#00529b] bg-white" 
+              placeholder="الهدف" 
+            />
+          </div>
+        </div>
+      </div>
 
-      {/* الملاحظات والحفظ */}
-      <div style={styles.topSection}>
-        <label style={styles.label}>ملاحظات إضافية (اختياري):</label>
+      {/* الملاحظات */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        <label className="block text-sm font-semibold text-gray-700 mb-2">ملاحظات إضافية (اختياري):</label>
         <textarea 
-          style={styles.textarea} 
+          className="w-full border border-gray-300 rounded-xl p-3 min-h-[100px] bg-gray-50 focus:outline-none focus:border-[#00529b] focus:ring-1 focus:ring-[#00529b]" 
           value={reportData.notes}
           onChange={(e) => handleDataChange('notes', e.target.value)}
           placeholder="أي ملاحظات عن الزيارة..."
         />
       </div>
 
-      <button style={styles.submitBtn} onClick={() => navigate('/archive')}>
+      {/* زرار الحفظ */}
+      <button 
+        onClick={handleSubmit}
+        className="w-full bg-[#34A853] hover:bg-green-600 text-white font-extrabold text-xl py-4 rounded-xl shadow-lg transition-colors mb-8"
+      >
         حفظ وإرسال التقرير
       </button>
+
     </div>
   );
-};
-
-const styles = {
-  container: { padding: '15px', backgroundColor: '#f4f7f6', minHeight: '100vh', fontFamily: 'sans-serif', direction: 'rtl' as const },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' },
-  title: { color: '#1C74B4', margin: 0, fontSize: '20px', fontWeight: 'bold' },
-  backBtn: { background: 'none', border: 'none', fontSize: '16px', color: '#555', cursor: 'pointer' },
-  topSection: { marginBottom: '15px', backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
-  inputGroup: { marginBottom: '12px' },
-  label: { display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333', fontSize: '14px' },
-  input: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', boxSizing: 'border-box' as const, fontSize: '14px', backgroundColor: '#fafafa' },
-  productsContainer: { backgroundColor: '#fff', padding: '10px', borderRadius: '10px', marginBottom: '20px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' },
-  tableHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #1C74B4', paddingBottom: '10px', marginBottom: '10px', fontWeight: 'bold', color: '#1C74B4', fontSize: '14px' },
-  headerName: { flex: 1.5, textAlign: 'right' as const },
-  headerInput: { flex: 1, textAlign: 'center' as const },
-  categoryHeader: { backgroundColor: '#1C74B4', color: '#fff', padding: '8px 10px', borderRadius: '5px', marginTop: '15px', marginBottom: '5px', fontSize: '15px', fontWeight: 'bold' },
-  productRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eee' },
-  productName: { fontSize: '12px', color: '#444', flex: 1.5, fontWeight: 'bold', paddingLeft: '5px', direction: 'ltr' as const, textAlign: 'right' as const },
-  inputsWrapper: { display: 'flex', flex: 2, gap: '8px', justifyContent: 'space-between' },
-  numberInput: { flex: 1, padding: '8px 4px', borderRadius: '5px', border: '1px solid #ccc', textAlign: 'center' as const, width: '100%', fontSize: '14px' },
-  textarea: { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', minHeight: '80px', boxSizing: 'border-box' as const, fontSize: '14px' },
-  submitBtn: { width: '100%', padding: '15px', backgroundColor: '#34A853', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '30px' }
-};
-const handleSubmit = async () => {
-  // 1. تصفية المنتجات: هناخد بس المنتجات اللي المندوبة كتبت فيها أرقام (عشان الشيت ميتمليش صفوف فاضية)
-  const filledProducts = products.filter(p => p.target !== '' || p.achieved !== '');
-
-  // 2. تجميع كل داتا التقرير في كائن واحد
-  const finalReport = {
-    ...reportData,
-    negativeCustomers: negativeCustomer,
-    positiveCustomers: positiveCustomer,
-    totalCustomers: (negativeCustomer || 0) + (positiveCustomer || 0),
-    voucherCount: reportData.reportType === 'فاوتشر' ? voucherCount : 0,
-    products: filledProducts
-  };
-
-  try {
-    // 3. إرسال البيانات للجوجل شيت بأسلوب POST
-    const response = await fetch('رابط_الـ_Web_App_الخاص_بك', {
-      method: 'POST',
-      body: JSON.stringify(finalReport)
-    });
-
-    if (response.ok) {
-      alert('تم حفظ وإرسال التقرير بنجاح! 🎉');
-      navigate('/archive'); // يرجعها لصفحة الأرشيف بره تلقائياً
-    } else {
-      alert('حدث خطأ أثناء الحفظ، حاول مرة أخرى');
-    }
-  } catch (error) {
-    console.error('خطأ في الإرسال:', error);
-    alert('فشل الاتصال بالسيرفر، تأكد من الإنترنت');
-  }
 };
 
 export default ReportForm;
