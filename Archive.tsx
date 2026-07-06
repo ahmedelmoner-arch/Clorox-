@@ -3,99 +3,83 @@ import { useNavigate } from 'react-router-dom';
 
 const Archive = () => {
   const navigate = useNavigate();
+  // رابط السكريبت بتاعك (نفس الرابط اللي موجود في صفحة التقارير)
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbwQJOXguCJQxNFCc0ZmwaC_OYo2_ywyR05kWwurDfWw6B4uyKE4mljcU7_UPVfo5bNq/exec';
+  
   const [reports, setReports] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState('أرشيف التقارير');
-  const [filter, setFilter] = useState<{ key: string, value: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // هنا بنضيف أمر صغير للرابط عشان نقول للسكريبت يرجع التقارير مش القوائم
   useEffect(() => {
-    fetch('https://script.google.com/macros/s/AKfycbzsxTJsDodK5QGdrU6AJrxUGMBhbJGQOFVcE_nLdflkwiOADkByvdoP86DWjdXOlR15/exec?action=getReports')
+    fetch(`${scriptUrl}?action=getReports`)
       .then(res => res.json())
-      .then(data => setReports(data));
+      .then(data => {
+        // لو البيانات رجعت بنجاح
+        if(data && Array.isArray(data)) {
+          setReports(data.reverse()); // Reverse عشان أجدد تقرير يظهر فوق
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("خطأ في جلب الأرشيف:", err);
+        setLoading(false);
+      });
   }, []);
 
-  // المنطق بتاع الفلترة والتابات
-  const getFilteredData = () => {
-    let data = reports;
-    if (activeTab === 'الإجازات') data = data.filter(r => r["نوع التقرير"] === 'اجازة');
-    else if (activeTab === 'أرشيف التقارير') data = data.filter(r => r["نوع التقرير"] !== 'اجازة');
-    
-    if (filter) data = data.filter(r => r[filter.key] === filter.value);
-    return data;
-  };
-
-  const filteredData = getFilteredData();
-  const totalAchieved = filteredData.reduce((acc, curr) => acc + (Number(curr["المحقق"] || 0)), 0);
-
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={{margin: 0, fontSize: '20px'}}>سجل التقارير</h2>
+    <div className="min-h-screen bg-gray-50 p-4 font-sans text-right" dir="rtl">
+      
+      {/* الهيدر */}
+      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm">
+        <button onClick={() => navigate('/report-form')} className="bg-[#00529b] text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-blue-800 transition">
+          + تقرير جديد
+        </button>
+        <h2 className="text-2xl font-extrabold text-[#00529b]">أرشيف التقارير</h2>
       </div>
 
-      {/* الـ Tabs اللي طلبتها */}
-      <div style={styles.tabsContainer}>
-        {['أرشيف التقارير', 'الإجازات', 'إجمالي المندوبة'].map(tab => (
-          <button key={tab} style={{...styles.tab, borderBottom: activeTab === tab ? '3px solid #1C74B4' : 'none'}} onClick={() => setActiveTab(tab)}>
-            {tab}
-          </button>
-        ))}
-      </div>
+      {/* شاشة التحميل */}
+      {loading ? (
+        <div className="text-center mt-20 text-lg font-bold text-[#00529b]">
+          جاري تحميل الأرشيف... ⏳
+        </div>
+      ) : reports.length === 0 ? (
+        <div className="text-center mt-20 text-gray-500 font-bold">
+          لا توجد تقارير مسجلة حتى الآن.
+        </div>
+      ) : (
+        /* عرض التقارير في كروت */
+        <div className="grid gap-4">
+          {reports.map((report, index) => (
+            <div key={index} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
+              <div className="flex justify-between items-center border-b pb-3 mb-3">
+                <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full text-sm">
+                  {report[3] /* نوع التقرير */}
+                </span>
+                <span className="text-gray-500 font-semibold text-sm">
+                  {new Date(report[0]).toLocaleDateString('ar-EG') /* التاريخ */}
+                </span>
+              </div>
+              
+              <div className="mb-2">
+                <span className="text-gray-500 text-sm">المندوبة:</span>
+                <span className="font-bold text-[#00529b] mr-2">{report[2]}</span>
+              </div>
+              
+              <div className="mb-2">
+                <span className="text-gray-500 text-sm">الفرع:</span>
+                <span className="font-bold text-[#00529b] mr-2">{report[4]}</span>
+              </div>
 
-      {/* شريط الفلتر الذكي */}
-      {filter && (
-        <div style={styles.filterBar}>
-          <span>نتائج لـ: <strong>{filter.value}</strong></span>
-          <button style={styles.clearBtn} onClick={() => setFilter(null)}>إلغاء ❌</button>
-          <strong>الإجمالي: {totalAchieved}</strong>
+              <div className="bg-gray-50 p-3 rounded-xl mt-3 text-sm text-gray-700 whitespace-pre-wrap">
+                <span className="font-bold block mb-1">المنتجات:</span>
+                {report[6] ? report[6] : 'لم يتم إدخال منتجات'}
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>التاريخ</th>
-              <th style={styles.th}>المندوبة</th>
-              <th style={styles.th}>الفرع</th>
-              <th style={styles.th}>المحقق</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredData.map((row, i) => (
-              <tr key={i} style={styles.tr}>
-                <td style={styles.td} onClick={() => setFilter({key: "التاريخ", value: row["التاريخ"]})}>{row["التاريخ"]}</td>
-                <td style={styles.td} onClick={() => setFilter({key: "اسم المندوبة", value: row["اسم المندوبة"]})}>{row["اسم المندوبة"]}</td>
-                <td style={styles.td} onClick={() => setFilter({key: "اسم الفرع", value: row["اسم الفرع"]})}>{row["اسم الفرع"]}</td>
-                <td style={styles.td}>{row["المحقق"]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* الزر العائم وشريط التنقل تحت */}
-      <button style={styles.fab} onClick={() => navigate('/report-form')}>+</button>
-      <div style={styles.bottomNav}>
-        <div style={{color: '#1C74B4'}} onClick={() => navigate('/archive')}>📂 الأرشيف</div>
-        <div onClick={() => navigate('/history')}>📅 التاريخ</div>
-      </div>
     </div>
   );
-};
-
-const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column' as const, direction: 'rtl' as const, backgroundColor: '#f9f9f9' },
-  header: { padding: '20px', backgroundColor: '#fff', textAlign: 'center' as const, boxShadow: '0 2px 5px rgba(0,0,0,0.1)' },
-  tabsContainer: { display: 'flex', backgroundColor: '#fff' },
-  tab: { flex: 1, padding: '15px', border: 'none', background: 'none', fontWeight: 'bold' as const, cursor: 'pointer' },
-  filterBar: { padding: '10px 20px', backgroundColor: '#d1e7dd', display: 'flex', justifyContent: 'space-between' },
-  tableWrapper: { flex: 1, overflowY: 'auto' as const, padding: '10px' },
-  table: { width: '100%', borderCollapse: 'collapse' as const, backgroundColor: '#fff', borderRadius: '8px' },
-  th: { padding: '12px', borderBottom: '2px solid #ddd' },
-  tr: { borderBottom: '1px solid #eee' },
-  td: { padding: '12px', textAlign: 'center' as const, cursor: 'pointer', color: '#1C74B4' },
-  fab: { position: 'fixed' as const, bottom: '80px', right: '20px', width: '55px', height: '55px', borderRadius: '50%', background: '#1C74B4', color: '#fff', border: 'none', fontSize: '24px' },
-  bottomNav: { height: '60px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#fff', borderTop: '1px solid #ddd' }
 };
 
 export default Archive;
